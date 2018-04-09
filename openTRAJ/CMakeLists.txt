@@ -38,15 +38,17 @@ if (NOT NO_PARALLEL)
 endif()
 
 if ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 3.2)
+        message(FATAL_ERROR "Clang version must be at least 3.2!")
+    endif()
     set(CMAKE_CXX_FLAGS "-std=c++11 -O3 ${OpenMP_CXX_FLAGS}")        ## Optimize	
 elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.4)
+        message(FATAL_ERROR "GCC version must be at least 5.4")
+    endif()
    set(CMAKE_CXX_FLAGS "-std=c++11 -O3 -ffast-math -fno-math-errno ${OpenMP_CXX_FLAGS}")  
 endif()
-if ("${CMAKE_C_COMPILER_ID}" STREQUAL "Clang")
-    set(CMAKE_C_FLAGS " -O2 ")        ## Optimize	
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-   set(CMAKE_C_FLAGS "-O2 -fmessage-length=0") 
-endif()
+
 
 LONG_TODAY(BUILD_DATE)
 include_directories("include")
