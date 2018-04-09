@@ -8,7 +8,6 @@
 #ifndef SRC_TRJREAD_H_
 #define SRC_TRJREAD_H_
 
-#include "trjInput.h"
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -18,6 +17,7 @@
 #include <string>
 #include <iterator>
 
+#include "../Execute/trjInput.h"
 #include "VoronoiSetter.h"
 #include "FstreamC.h"
 #include "FstreamF.h"

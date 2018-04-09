@@ -5,7 +5,7 @@
  *      Author: marchi
  */
 
-#include "trjInput.h"
+#include "../Execute/trjInput.h"
 
 namespace trj {
 trjInput::trjInput(int ntot,char ** v, ClearUsage & clr) {

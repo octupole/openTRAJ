@@ -5,32 +5,28 @@
  *      Author: marchi
  */
 
-#include "ExecuteProp.h"
+#include "../Execute/ExecuteVoronoi.h"
+
 #include "Atoms.h"
+#include "Voronoi.h"
+#include "VoronoiMicellesJSON.h"
+#include "VoronoiBinary.h"
 
-namespace Properties {
-
-template <typename T>
-size_t ExecuteProp<T>::nnx=1;
-template <typename T>
-size_t ExecuteProp<T>::nny=1;
-template <typename T>
-size_t ExecuteProp<T>::nnz=1;
-template <typename T>
-Parallel::NewMPI * ExecuteProp<T>::CurrMPI{nullptr};
-template <typename T>
-void ExecuteProp<T>::__Print(ofstream & y){}
+namespace Voro {
 
 template <typename T>
-T min3(MMatrix<T> co){
-  T myMin=1e10;
-  for(auto q=0;q<DIM;q++){
-    if(myMin > 5.0*co[q][q]) myMin=5.0*co[q][q];
-  }
-  return myMin;
-};
+size_t ExecuteVoronoi<T>::nnx=1;
 template <typename T>
-ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn) {
+size_t ExecuteVoronoi<T>::nny=1;
+template <typename T>
+size_t ExecuteVoronoi<T>::nnz=1;
+template <typename T>
+Parallel::NewMPI * ExecuteVoronoi<T>::CurrMPI{nullptr};
+template <typename T>
+void ExecuteVoronoi<T>::__Print(ostream & y){}
+
+template <typename T>
+ExecuteVoronoi<T>::ExecuteVoronoi(trj::TrjRead & MyIn) {
 	__SetUp(MyIn);
 
 	bOnce=MyIn.bbOnce();
@@ -41,8 +37,7 @@ ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn) {
 	nend=MyIn.gnend();
 	nskip=MyIn.gnskip();
 	bTest=MyIn.bbTestVol();
-	fout_pdbx=MyIn.gFout_pdbx();
-	fout_ndxx=MyIn.gFout_ndxx();
+
 	if(finx){
 		size_t TotFrame=finx->gFrameStep();
 		try{
@@ -61,15 +56,28 @@ ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn) {
 		if(finx && nend-nstart+1 < nskip) throw string("\nNumber of selected steps is smaller than -skip parameter. Change and rerun.\n");
 	}catch(const string & s) {cout << s <<endl;Finale::Finalize::Final();}
 
+	if(fin1x){
+		cout << JSONOutput<<endl;
+		if(JSONOutput)
+			vor=new VoronoiBinary<VoronoiMicellesJSON>(*fin1x);
+		else
+			vor=new VoronoiBinary<VoronoiMicelles>(*fin1x);
+
+		ofstream & fout=*foutx;
+
+		CurrMPI->Barrier();
+		Comms=new Parallel::FComms(CurrMPI,fout,fileout,nstart,nend,1e8,1);
+		nstart=Comms->getStart();
+		nend=Comms->getEnd();
+	}
 }
 template <typename T>
-ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn, Topol & Topology):
- 	 ExecuteProp<T>::ExecuteProp(MyIn){
+ExecuteVoronoi<T>::ExecuteVoronoi(trj::TrjRead & MyIn, Topol & Topology):
+ 	 ExecuteVoronoi<T>::ExecuteVoronoi(MyIn){
 	Top=&Topology;
 	ios::streampos len;
 	HeaderTrj header;
 // Read header of dcd file
-
 	try{
 		if(finx) {
 			finx->seekg(0,"end");
@@ -92,7 +100,6 @@ ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn, Topol & Topology):
 			Comms=new Parallel::FComms(CurrMPI,fout,fileout,nstart,nend,header.getNFR(),nskip);
 			nstart=Comms->getStart();
 			nend=Comms->getEnd();
-
 		}else{
 			ofstream & fout=*foutx;
 			CurrMPI->Barrier();
@@ -101,28 +108,37 @@ ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn, Topol & Topology):
 			Comms=new Parallel::FComms(CurrMPI,fout,fileout,nstart,nend,header.getNFR(),nskip);
 			nstart=Comms->getStart();
 			nend=Comms->getEnd();
-
 		}
 	} catch(const string & s){cout << s<<endl;
 	Finale::Finalize::Final();exit(1);}
 
+	if(JSONOutput){
+		if(binOutput){
+			vor=new VoronoiBinary<VoronoiMicellesJSON>(*foutx,Topology,bHyd, CurrMPI);
+		}else{
+			vor=new VoronoiMicellesJSON(Topology,bHyd);
+		}
+	}else{
+		if(binOutput){
+			vor=new VoronoiBinary<VoronoiMicelles>(*foutx,Topology,bHyd, CurrMPI);
+		} else{
+			vor=new VoronoiMicelles(Topology,bHyd);
+		}
+	}
 	Percolation<T>::setPercoCutoff(MyIn.gPercoCutoff());
 
-	Clustering=true;
+	Clustering=MyIn.bbClust();
 	Rcut=MyIn.gRcut();
 	Rcut_in=MyIn.gRcut_in();
+
 };
 template <typename T>
-void ExecuteProp<T>::__lastBuffer(ofstream & fout){
-	if(this->JSONOutput){
-		fout <<"\""<<"gyro"<<"\": ";
-		fout<<Gyration<T>::gJson();
-		fout<<"},";
-	}
-}
-template <typename T>
-void ExecuteProp<T>::operator()(Atoms<T> * atx){
+void ExecuteVoronoi<T>::operator()(Atoms<T> * atx){
 
+	if(!atx) {
+		__RunPost();
+		return;
+	}
 	if(finx)
 		__RunTrajectory(atx);
 	else
@@ -130,43 +146,62 @@ void ExecuteProp<T>::operator()(Atoms<T> * atx){
 }
 
 template <typename T>
-void ExecuteProp<T>::__RunTrajectory(Atoms<T> * atmx){
+void ExecuteVoronoi<T>::__RunPost(){
+	myiterators::IteratorVoronoi iter_vor(vor,fin1x,nstart,nend);
+	while((++iter_vor).isReferenced()){
+		stringstream ss;
+		Voronoi * vorA=iter_vor();
+		vorA->getData();
+		Comms->getStream() << *vorA;
+		if(bTest) vor->testVol();
+		switch(vor->nClusters()){
+		case 0:
+			break;
+		case 1:
+			ss << "    " <<fixed << setw(4) << vor->nClusters()<<" cluster  <-----";
+			break;
+		default:
+			ss<< "    " << fixed << setw(4) << vor->nClusters()<<" clusters <-----";
+		}
+
+
+
+		cout << fixed << setw(5) << "----> Time Step " << vor->gTime() << ss.str()<<"\n";
+	}
+	vor->WriteLastJSON(Comms->getStream());
+	Comms->appendStreams();
+	if(bDel) Comms->removeFiles();
+	CurrMPI->Barrier();
+	CurrMPI->~NewMPI();
+	cout << "\nProgram completed: Output data written to " + fileout << "\n\n";
+}
+template <typename T>
+void ExecuteVoronoi<T>::__RunTrajectory(Atoms<T> * atmx){
 
 	myiterators::IteratorAtoms<T> iter_atm(atmx,finx,nstart,nend,nskip);
-    Contacts<T> * Con0;
-    if(Rcut_in < 0) Rcut_in=Rcut;
-    Con0=new Contacts<T>(Rcut,Rcut);
 
 	while((++iter_atm).isReferenced()){
 		stringstream ss;
 		Atoms<T> * atmA=iter_atm();
-		Metric<T> Mt=atmA->getMt();
-		MMatrix<T> CO=Mt.getCO();
-
 
 		float ntime=atmA->getTime();
 		int nClusters{0};
 		atmA->setTopol(*Top);
-
 		if(Clustering){
-
 			static struct Once{
 				Once(Atoms<T> * atmA, Topol_NS::Topol * myTop, bool JSON){
 					if(JSON)
-						atmA->template SetupPercolate<Enums::JSON>(*myTop);
-					else
-						atmA->template SetupPercolate<Enums::noJSON>(*myTop);
+							atmA->template SetupPercolate<Enums::JSON>(*myTop);
+						else
+							atmA->template SetupPercolate<Enums::noJSON>(*myTop);
 				}
-			} _Once(atmA, Top,JSONOutput);
+			} _Once(atmA, Top, this->JSONOutput);
 			if(bOnce){
 				static struct Once_p{int nClusters{0};Once_p(Atoms<T> *atmA){nClusters=atmA->Percolate();}} __Once_p(atmA);
 				nClusters=__Once_p.nClusters;
 			}else {
 				nClusters=atmA->Percolate();
 			}
-
-			atmA->Reconstruct(Con0);
-
 		}
 		switch(nClusters){
 		case 0:
@@ -178,67 +213,27 @@ void ExecuteProp<T>::__RunTrajectory(Atoms<T> * atmx){
 			ss<< "    " << fixed << setw(4) << nClusters<<" clusters <-----";
 		}
 
-		if(fout_pdbx){
-			if(CurrMPI->Get_Rank() == 0)
-				(*fout_pdbx) << *atmA;
-			CurrMPI->Barrier();
+		vor->Start(ntime,*atmA);
+		vor->doVoro__();
+		vor->getData();
 
-		} else if(fout_ndxx){
-			atmA->setNdx(true);
-			if(CurrMPI->Get_Rank() == 0)
-				(*fout_ndxx) << *atmA;
-			CurrMPI->Barrier();
-		} else{
-			if(this->JSONOutput)
-				atmA->template Gyro<Enums::JSON>();
-			else
-				atmA->template Gyro<Enums::noJSON>();
-			Comms->getStream() << atmA->getRg_i();
-			Comms->getStream() << *atmA->gPerco();
-		}
+		Comms->getStream() << *vor;
 
-
+		if(bTest) vor->testVol();
 		cout << fixed << setw(5) << "----> Time Step " << ntime << ss.str()<<"\n";
 	}
-	__lastBuffer(Comms->getStream());
+
+	vor->WriteLastJSON(Comms->getStream());
 	Comms->appendStreams();
 	if(bDel) Comms->removeFiles();
 	Comms->closeStream();   // close stream!!!
 	CurrMPI->Barrier();
-	if(this->JSONOutput){
-		__wrapOutfile();
-	}
 	CurrMPI->~NewMPI();
 	cout << "\nProgram completed: Output data written to " + fileout << "\n\n";
 
 }
 template <typename T>
-void ExecuteProp<T>::__wrapOutfile(){
-	if(CurrMPI->Get_Rank() == 0){
-		char * buffer0= strdup("./.tmpfileXXXXXX");
-		try{if(mkstemp(buffer0) == -1) throw "temporary file cannot be created";}
-		catch(const char * s){std::cout << s << std::endl;exit(-1);}
-		string tmpFile(buffer0);
-		fstream myfout(buffer0,fstream::out|fstream::trunc|fstream::binary);
-		fstream myfin(fileout.c_str(),fstream::in|fstream::binary);
-		myfin.seekg(0,ios::beg);
-		myfout<<"{";
-		myfout << myfin.rdbuf();
-		myfout.seekg(-1,ios::end);
-		myfout.put('}');
-		myfout.close();
-		myfin.close();
-		myfin.open(buffer0,fstream::in|fstream::binary);
-		myfout.open(fileout.c_str(),fstream::out|fstream::trunc|fstream::binary);
-		myfout<< myfin.rdbuf();
-		myfout.close();myfin.close();
-		try{if(remove(buffer0) != 0) throw string("---->> Temporary files cannot be removed! <<-----");}
-		catch(const string & s){std::cout << s << std::endl;}
-	}
-	CurrMPI->Barrier();
-}
-template <typename T>
-void ExecuteProp<T>::__RunPDB(Atoms<T> * atm){
+void ExecuteVoronoi<T>::__RunPDB(Atoms<T> * atm){
 	bool bTestVol{true};
 	vector<string> data;
 	fpdb->clear();
@@ -248,14 +243,12 @@ void ExecuteProp<T>::__RunPDB(Atoms<T> * atm){
 	}
 	atm->pdb(data);
 	float ntime=atm->getTime();
-	if(this->JSONOutput)
-		atm->template Gyro<Enums::JSON>();
-	else
-		atm->template Gyro<Enums::noJSON>();
+	vor-> Start(ntime,*atm);
+	vor->doVoro__();
+	vor->getData();
+	Comms->getStream() << *vor;
 
-
-	Comms->getStream() << atm->getRg_i();
-	Comms->getStream() << atm->getComp();
+	if(bTestVol) vor->testVol();
 	Comms->appendStreams();
 	if(bDel) Comms->removeFiles();
 	CurrMPI->Barrier();
@@ -265,7 +258,7 @@ void ExecuteProp<T>::__RunPDB(Atoms<T> * atm){
 
 
 template <typename T>
-void ExecuteProp<T>::__SetUp(trj::TrjRead & MyIn){
+void ExecuteVoronoi<T>::__SetUp(trj::TrjRead & MyIn){
 	fileout=MyIn.gfileout();
 
 	bDel=MyIn.bbDel();
@@ -291,18 +284,13 @@ void ExecuteProp<T>::__SetUp(trj::TrjRead & MyIn){
 
 	Rcut=MyIn.gRcut();
 	Rcut_in=MyIn.gRcut_in();
-	Clustering=true;
+	Clustering=MyIn.bbClust();
 }
 
 template <typename T>
-ExecuteProp<T>::~ExecuteProp() {}
-template <typename T>
-ofstream & operator<<(ofstream & fout, ExecuteProp<T> & y)
-{
-		y.__Print(fout);
-		return fout;
-	}
-template class ExecuteProp<float>;
-template class ExecuteProp<double>;
+ExecuteVoronoi<T>::~ExecuteVoronoi() {}
+
+template class ExecuteVoronoi<float>;
+template class ExecuteVoronoi<double>;
 
 } /* namespace Voronoi */

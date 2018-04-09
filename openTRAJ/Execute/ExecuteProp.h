@@ -12,7 +12,8 @@
 #include "FstreamF.h"
 #include "MyUtilClass.h"
 #include <iterator>
-#include "TrjRead.h"
+
+#include "../Execute/TrjRead.h"
 #include "Finalize.h"
 #include "Topol.h"
 #include "FComms.h"

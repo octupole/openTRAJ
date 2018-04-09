@@ -5,7 +5,7 @@
  *      Author: marchi
  */
 
-#include "TrjRead.h"
+#include "../Execute/TrjRead.h"
 namespace trj {
 Parallel::NewMPI * TrjRead::CurrMPI=nullptr;
 

@@ -60,15 +60,15 @@
 #include "TopolPDB.h"
 #include "Topol.h"
 #include "Timer.h"
-#include "TrjRead.h"
 #include "myEnums.hpp"
 #include "Timer.h"
-#include "ExecuteVoronoi.h"
 #include "NewMPI.h"
 #include "Atoms.h"
+#include "Execute/ClearUsage.h"
+#include "Execute/ExecuteVoronoi.h"
+#include "Execute/TrjRead.h"
 #include "PickSelection.h"
 #include "Finalize.h"
-#include "ClearUsage.h"
 
 using namespace Topol_NS;
 
