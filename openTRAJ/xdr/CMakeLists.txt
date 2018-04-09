@@ -2,8 +2,7 @@
 cmake_minimum_required( VERSION 3.0) 
 
 
-# Project name
-project(xdr C)
+
 if (NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE "Release")
 endif()

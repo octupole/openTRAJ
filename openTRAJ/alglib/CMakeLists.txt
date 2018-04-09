@@ -1,6 +1,5 @@
 # Policy
-cmake_minimum_required( VERSION 3.0) 
-
+cmake_minimum_required( VERSION 3.7) 
 
 # Project name
 if (NOT CMAKE_BUILD_TYPE)
