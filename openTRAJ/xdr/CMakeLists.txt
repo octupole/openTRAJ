@@ -16,5 +16,4 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT)
 endif()
 
 include_directories("${PROJECT_BINARY_DIR}")
-message(STATUS "Here ${PROJECT_SOURCE_DIR}")
 add_subdirectory(src)

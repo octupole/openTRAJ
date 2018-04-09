@@ -11,5 +11,3 @@ endif()
 include_directories("include")
 add_library(voro++ STATIC cell.cc common.cc container.cc container_prd.cc c_loops.cc pre_container.cc 
 	unitcell.cc v_compute.cc v_base.cc wall.cc)
-message(STATUS "I will be back")
-install(TARGETS voro++ ARCHIVE DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" COMPONENT library)

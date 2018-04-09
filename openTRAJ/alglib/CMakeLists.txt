@@ -12,6 +12,3 @@ set(SOURCE alglibinternal.cpp alglibmisc.cpp ap.cpp dataanalysis.cpp diffequatio
 	statistics.cpp)
 include_directories("include")
 add_library(alglib STATIC ${SOURCE} )
-
-message(STATUS "I will be back in alglib")
-install(TARGETS alglib ARCHIVE DESTINATION "${CMAKE_INSTALL_PREFIX}/lib" COMPONENT library)

@@ -1,5 +1,5 @@
 //============================================================================
-// Name        : trjVoronoi.cpp
+// Name        : trjProp.cpp
 // Author      : Massimo Marchi
 // Version     : 0.2alpha
 // Copyright   : CeCILL copyright
@@ -63,7 +63,7 @@
 #include "TrjRead.h"
 #include "myEnums.hpp"
 #include "Timer.h"
-#include "ExecuteVoronoi.h"
+#include "ExecuteProp.h"
 #include "NewMPI.h"
 #include "Atoms.h"
 #include "PickSelection.h"
@@ -75,7 +75,7 @@ using namespace Topol_NS;
 using namespace std;
 
 Atoms<double> * atm{nullptr};
-Voro::ExecuteVoronoi<double> * MyRun{nullptr};
+Properties::ExecuteProp<double> * MyRun{nullptr};
 
 
 TopolPDB topPDB;
@@ -87,20 +87,20 @@ int main(int argc, char ** argv){
 	**
 	 * set communicator
 	 */
-	Voro::ExecuteVoronoi<double>::InitComm();// Start parallel tasks
-	Finale::Finalize::CurrMPI=Voro::ExecuteVoronoi<double>::CurrCom();
-	trj::TrjRead::SetComm(Voro::ExecuteVoronoi<double>::CurrCom());
+	Properties::ExecuteProp<double>::InitComm();// Start parallel tasks
+	Finale::Finalize::CurrMPI=Properties::ExecuteProp<double>::CurrCom();
+	trj::TrjRead::SetComm(Properties::ExecuteProp<double>::CurrCom());
 	/**
 	 * read input
 	 */
-	ClearUsage clr({});
+	ClearUsage clr({6,7,9,10,13,14,16,18,19,20,21,22,23,24});
 	trj::TrjRead MyIn(argc,argv,clr);
 	MyIn.Input();
 	timer::Timer myTime;
 	Topol_NS::Topol MyTop;
 
 	if(MyIn.gFin1()){
-		MyRun=new Voro::ExecuteVoronoi<double>(MyIn);
+		MyRun=new Properties::ExecuteProp<double>(MyIn);
 	} else {
 		vector<string> data;
 		if(MyIn.gFpdb()){
@@ -120,7 +120,7 @@ int main(int argc, char ** argv){
 		atm=new Atoms<double>(natoms);
 
 		MyTop.InitSelection(MyIn.gReference(),Enums::Reference);
-		MyRun=new Voro::ExecuteVoronoi<double>(MyIn,MyTop);
+		MyRun=new Properties::ExecuteProp<double>(MyIn,MyTop);
 
 	}
 
