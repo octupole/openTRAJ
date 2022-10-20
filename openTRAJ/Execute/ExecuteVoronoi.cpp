@@ -75,7 +75,7 @@ template <typename T>
 ExecuteVoronoi<T>::ExecuteVoronoi(trj::TrjRead & MyIn, Topol & Topology):
  	 ExecuteVoronoi<T>::ExecuteVoronoi(MyIn){
 	Top=&Topology;
-	ios::streampos len;
+	std::streampos len;
 	HeaderTrj header;
 // Read header of dcd file
 	try{

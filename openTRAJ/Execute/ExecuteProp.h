@@ -38,7 +38,7 @@ class ExecuteProp {
 	Topol * TopPBC{nullptr};
 
 	long int nstart{0},nend{-1},nskip{1}; ///< Where to start to end and how many steps to skip in between
-	ios::streampos len;
+	std::streampos len;
 	static size_t nnx,nny,nnz; ///< The three dimension of the grid
 	bool Clustering{false}; ///< Do clustering or not
 	bool bTest{false};

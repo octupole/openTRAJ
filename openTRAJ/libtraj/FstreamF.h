@@ -17,7 +17,7 @@ public:
 	virtual bool CheckFrameNumber(int y){return true;};
 	virtual void nextFrame();
 	virtual void seekg(off_t,string);
-	virtual ios::streampos tellg();
+	virtual std::streampos tellg();
 	virtual void Rewind(){
 		nframe=0;
 	}

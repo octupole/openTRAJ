@@ -67,7 +67,7 @@ template <typename T>
 ExecuteProp<T>::ExecuteProp(trj::TrjRead & MyIn, Topol & Topology):
  	 ExecuteProp<T>::ExecuteProp(MyIn){
 	Top=&Topology;
-	ios::streampos len;
+	std::streampos len;
 	HeaderTrj header;
 // Read header of dcd file
 
